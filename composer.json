@@ -1,0 +1,15 @@
+{
+    "name": "ash/cloud",
+    "type": "project",
+    "require": {
+        "symfony/yaml": "^5.1",
+        "shuchkin/simplexlsx": "^0.8.19"
+    },
+    "license": "mit",
+    "authors": [
+        {
+            "name": "lukasz-jakub-adamczuk",
+            "email": "lukasz.jakub.adamczuk@gmail.com"
+        }
+    ]
+}
