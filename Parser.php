@@ -16,13 +16,23 @@ function parseAllSheetsWithQuestions($sheets, $basePath) {
             $name = strtolower($name);
             $qs = parseSheet($xlsx->rows($sk));
             $generated = time() * 1000;
+            // palast
+            foreach ($sheets as $sk => $sheet) {
+                if (strpos($name, $sk) !== false) {
+                    $key = $sk;
+                    break;
+                }
+            }
+
             $header = '';
-            $header .= '# exam:        '.$name."\n";
-            $header .= '# questions:   '.$sheets[$name]['questions']."\n";
-            $header .= '# duration:    '.$sheets[$name]['duration']."\n";
-            $header .= '# pass:        '.$sheets[$name]['pass']."\n";
-            $header .= '# description: '.$sheets[$name]['name']."\n";
-            $header .= '# generated:   '.$generated."\n";
+            if (isset($key)) {
+                $header .= '# exam:        '.$name."\n";
+                $header .= '# questions:   '.$sheets[$key]['questions']."\n";
+                $header .= '# duration:    '.$sheets[$key]['duration']."\n";
+                $header .= '# pass:        '.$sheets[$key]['pass']."\n";
+                $header .= '# description: '.$sheets[$key]['name']."\n";
+                $header .= '# generated:   '.$generated."\n";
+            }
 
             $content = $header."\n".prepareExamQuestion($qs);
             $filename = $basePath . '/exams/' . slugify($name);
@@ -99,12 +109,58 @@ function parseSheet($sheet) {
                     $name = str_replace('    ', '[tab]', $name);
                     
                     $q['name'] = $name;
+
+                    // mandatory answers
+                    if (!isset($params['answers'])) {
+                        $re = '/(choose|pick|select|wybierz) (\d)/mi';
+                        preg_match_all($re, $name, $matches, PREG_SET_ORDER, 0);
+
+                        if (count($matches)) {
+                            // echo $name;
+                            $params['answers'] = $matches[0][2];
+                        }
+                    }
+                    if (!isset($params['answers'])) {
+                        $re = '/(\d) (answers|choices|options|ansers|anwsers)/mi';
+                        preg_match_all($re, $name, $matches, PREG_SET_ORDER, 0);
+
+                        if (count($matches)) {
+                            // echo $name;
+                            $params['answers'] = $matches[0][1];
+                        }
+                    }
+                    if (!isset($params['answers'])) {
+                        $re = '/(choose|select) \w* (\d)/mi';
+                        preg_match_all($re, $name, $matches, PREG_SET_ORDER, 0);
+
+                        if (count($matches)) {
+                            // echo $name;
+                            $params['answers'] = $matches[0][2];
+                        }
+                    }
+                    if (!isset($params['answers'])) {
+                        $re = '/(choose) (two|three|four|five|six)/mi';
+                        preg_match_all($re, $name, $matches, PREG_SET_ORDER, 0);
+
+                        $worldToNumberMap = [
+                            'two' => 2,
+                            'three' => 3,
+                            'four' => 4,
+                            'five' => 5,
+                            'six' => 6
+                        ];
+
+                        if (count($matches)) {
+                            // echo $name;
+                            $params['answers'] = $worldToNumberMap[$matches[0][2]];
+                        }
+                    }
                 }
                 
                 if (!empty($row[2])) {
                     // possible answers
                     $answers = trim($row[2]);
-                    if ($answers[0] == '-' || $answers[0] == '+') {
+                    if (strlen($answers) > 1 && ($answers[0] == '-' || $answers[0] == '+')) {
                         // special parsing for multi-line answers
                         $ans = explode("\n", $answers);
                         $opts = [];
@@ -174,6 +230,11 @@ function parseSheet($sheet) {
 
                     $params['comment'] = $comment;
                 }
+                if (!empty($row[5])) {
+                    // version
+                    $value = trim($row[5]);
+                    $params['version'] = $value;
+                }
                 if (!empty($row[6])) {
                     // image if exists
                     $value = trim($row[6]);
@@ -187,12 +248,34 @@ function parseSheet($sheet) {
                         }
                     }
                 }
+                if (!empty($row[7])) {
+                    // tags
+                    $value = trim($row[7]);
+                    // $tags = explode(',', $value);
+                    // foreach($tags as &$tag) {
+                    //     // $tags[$tk] =
+                    //     $tag = trim($tag);
+                    // }
+                    $params['area'] = $value;
+                }
                 
                 // clear letters
                 $re = '/^([+|-])\s?([a-zA-Z]?)([\.\s\)])(\s*)/m';
                 $subst = '$1 ';
 
-                $q['answers'] = preg_replace($re, $subst, $q['answers']);
+                if (isset($q['answers'])) {
+                    $q['answers'] = preg_replace($re, $subst, $q['answers']);
+                    $q['answers'] = str_replace('_x000D_', '', $q['answers']);
+                }
+                // replace some excel crap
+                // $char = '_x000D_';
+
+                // may not be enough answers as required
+                if (isset($params['answers']) && isset($q['correct'])) {
+                    if (count($q['correct']) < (int)$params['answers'] || count($q['correct']) == 1) {
+                        unset($params['answers']);
+                    }
+                }
 
                 if (count($params)) {
                     $q['params'] = $params;
