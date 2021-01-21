@@ -17,33 +17,37 @@ try {
     printf('Unable to parse the YAML string: %s', $exception->getMessage());
 }
 
-// sanitize
-$code = isset($_POST['code']) ? $_POST['code'] : null;
-$hash = isset($_POST['hash']) ? $_POST['hash'] : null;
+// poor sanitize
+$code = isset($_POST['code']) ? strip_tags($_POST['code']) : null;
+$hash = isset($_POST['hash']) ? strip_tags($_POST['hash']) : null;
 
 // get file content
 if ($code) {
     header('Content-Type: plain/text');
 
-    if (strlen($code) != 40) {
-        $code = sha1($code);
+    if (count(explode('/', $code)) == 2) {
+        $file = $code;
+    } else {
+        if (strlen($code) != 40) {
+            $code = sha1($code);
+        }
     }
-    
+
     if (isset($hashes[$code])) {
         $file = $hashes[$code];
-    } else {
-        echo 'Not found.';
     }
 
     if (isset($file)) {
         echo file_get_contents(dirname(__FILE__).'/exams/'.$file.'.md');
+    } else {
+        echo 'Not found.';
     }
     return;
 }
 
 // get file timestamp
 if ($hash) {
-    header('Content-Type: plain/text');
+    // header('Content-Type: html/text');
 
     if (isset($hashes[$hash])) {
         $file = $hashes[$hash];

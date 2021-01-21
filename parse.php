@@ -16,6 +16,17 @@ require_once __DIR__ . '/Parser.php';
 
 $basePath = dirname(__FILE__);
 
+$prefix = date('Ymd_His');
+
+if (isset($_FILES['myFile'])) {
+    $source = $_FILES['myFile']['tmp_name'];
+    $target = $basePath . '/uploads/' . $prefix .'_' . $_FILES['myFile']['name'];
+    move_uploaded_file($source, $target);
+    $sheetsFile = $target;
+} else {
+    $sheetsFile = $basePath . '/questions.xlsx';
+}
+
 try {
     $configFile = $basePath . '/config/sheets.yml';
     $sheets = Yaml::parse(file_get_contents($configFile));
@@ -23,6 +34,10 @@ try {
     printf('Unable to parse the YAML string: %s', $exception->getMessage());
 }
 
-parseAllSheetsWithQuestions($sheets, $basePath);
-
-echo time()."\n";
+if (isset($_FILES['myFile'])) {
+    $output = parseAllSheetsWithQuestions($sheets, $basePath, $sheetsFile, true);
+    echo json_encode($output);
+} else {
+    $output = parseAllSheetsWithQuestions($sheets, $basePath, $sheetsFile);
+    echo time()."\n";
+}

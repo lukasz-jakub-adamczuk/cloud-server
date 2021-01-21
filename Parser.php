@@ -10,8 +10,13 @@ function parseSingleSheetsWithQuestions($sheetNumber) {
 }
 
 
-function parseAllSheetsWithQuestions($sheets, $basePath) {
-    if ($xlsx = SimpleXLSX::parse($basePath . '/questions.xlsx')) {
+function parseAllSheetsWithQuestions($sheets, $basePath, $sheetFile, $parseAll = false) {
+    if ($parseAll) {
+        $location = date('Ymd_His_') . md5($sheetFile);
+        mkdir($basePath . '/exams/' . $location);
+    }
+    if ($xlsx = SimpleXLSX::parse($sheetFile)) {
+        $output = [];
         foreach ($xlsx->sheetNames() as $sk => $name) {
             $name = strtolower($name);
             $qs = parseSheet($xlsx->rows($sk));
@@ -35,30 +40,40 @@ function parseAllSheetsWithQuestions($sheets, $basePath) {
             }
 
             $content = $header."\n".prepareExamQuestion($qs);
-            $filename = $basePath . '/exams/' . slugify($name);
+            
+            
 
             // if (!mkdir($basePath . '/exams', 0777, true)) {
             //     die('Failed to create folders...');
             // }
             
-            if (file_exists($filename.'.timestamp')) {
-                $oldTimestamp = file_get_contents($filename.'.timestamp');
-                file_put_contents($filename.'-tmp.md', str_replace($generated, $oldTimestamp, $content));
-            } else {
-                // files generates for first run
+            if ($parseAll) {
+                $filename = $basePath . '/exams/' . $location . '/' . slugify($name);
                 file_put_contents($filename.'.timestamp', $generated);
                 file_put_contents($filename.'.md', $content);
-            }
-
-            if (file_exists($filename.'.md') && file_exists($filename.'-tmp.md')) {
-                if (md5_file($filename.'.md') != md5_file($filename.'-tmp.md')) {
-                    // need to serve new parsed file
+                $output[] = $location . '/' . slugify($name);
+            } else {
+                $filename = $basePath . '/exams/' . slugify($name);
+                if (file_exists($filename.'.timestamp')) {
+                    $oldTimestamp = file_get_contents($filename.'.timestamp');
+                    file_put_contents($filename.'-tmp.md', str_replace($generated, $oldTimestamp, $content));
+                } else {
+                    // files generates for first run
                     file_put_contents($filename.'.timestamp', $generated);
                     file_put_contents($filename.'.md', $content);
-                    unlink($filename.'-tmp.md');
+                }
+
+                if (file_exists($filename.'.md') && file_exists($filename.'-tmp.md')) {
+                    if (md5_file($filename.'.md') != md5_file($filename.'-tmp.md')) {
+                        // need to serve new parsed file
+                        file_put_contents($filename.'.timestamp', $generated);
+                        file_put_contents($filename.'.md', $content);
+                        unlink($filename.'-tmp.md');
+                    }
                 }
             }
         }
+        return $output;
     } else {
         echo SimpleXLSX::parseError();
     }
@@ -234,6 +249,8 @@ function parseSheet($sheet) {
                     // version
                     $value = trim($row[5]);
                     $params['version'] = $value;
+                } else {
+                    $params['version'] = 'empty';
                 }
                 if (!empty($row[6])) {
                     // image if exists
@@ -257,6 +274,8 @@ function parseSheet($sheet) {
                     //     $tag = trim($tag);
                     // }
                     $params['area'] = $value;
+                } else {
+                    $params['area'] = 'empty';
                 }
                 
                 // clear letters
