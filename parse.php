@@ -1,5 +1,7 @@
 <?php
 
+header('Access-Control-Allow-Origin: *');
+
 if (isset($_SERVER['REMOTE_ADDR']) && $_SERVER['REMOTE_ADDR'] == '127.0.0.1') {
     ini_set('display_errors', 1);
     error_reporting(E_ALL);
@@ -19,6 +21,10 @@ $basePath = dirname(__FILE__);
 $prefix = date('Ymd_His');
 
 if (isset($_FILES['myFile'])) {
+    if (!file_exists($basePath . '/uploads/')) {
+        mkdir($basePath . '/uploads/');
+    }
+
     $source = $_FILES['myFile']['tmp_name'];
     $target = $basePath . '/uploads/' . $prefix .'_' . $_FILES['myFile']['name'];
     move_uploaded_file($source, $target);
